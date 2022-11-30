@@ -206,6 +206,6 @@ class StudentAgent(Agent):
         result[x, y, dir] = True
         # Set the opposite barrier to True
         move = self.move_directions[dir]
-        board[x + move[0], y + move[1], self.opposites[dir]] = True
+        result[x + move[0], y + move[1], self.opposites[dir]] = True
         return result
 
