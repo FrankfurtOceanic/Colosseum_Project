@@ -38,9 +38,9 @@ class StudentAgent(Agent):
         Please check the sample implementation in agents/random_agent.py or agents/human_agent.py for more details.
         """
         # dummy return
-        return my_pos, self.dir_map["u"]
+        return self.minimax_decision(chess_board, my_pos, adv_pos, max_step)
 
-    def possible_moves(self, chess_board, my_pos, max_step):  # returns a set
+    def possible_moves(self, chess_board, my_pos, adv_pos, max_step):  # returns a set
 
         q = deque()
         q.append((my_pos, 0))
@@ -48,27 +48,27 @@ class StudentAgent(Agent):
         visited = set()
         while len(q) > 0:
             (x, y), depth = q.popleft()
-            if depth > 1:
+            if depth > max_step:
                 break
 
             if (x, y) not in visited:
                 # check and add up
-                if not chess_board[x, y, self.dir_map["u"]]:
+                if not chess_board[x, y, self.dir_map["u"]] and (x - 1, y) is not adv_pos: #check for a barrier and if the opponent is positioned in the desired square.
                     pos_moves.add(((x, y), self.dir_map["u"]))
                     q.append(((x - 1, y), depth + 1))
 
                 # check and add right
-                if not chess_board[x, y, self.dir_map["r"]]:
+                if not chess_board[x, y, self.dir_map["r"]] and (x, y+1) is not adv_pos:
                     pos_moves.add(((x, y), self.dir_map["r"]))
                     q.append(((x, y + 1), depth + 1))
 
                 # check and add down
-                if not chess_board[x, y, self.dir_map["d"]]:
+                if not chess_board[x, y, self.dir_map["d"]] and (x + 1, y) is not adv_pos:
                     pos_moves.add(((x, y), self.dir_map["d"]))
                     q.append(((x + 1, y), depth + 1))
 
                 # check and add left
-                if not chess_board[x, y, self.dir_map["l"]]:
+                if not chess_board[x, y, self.dir_map["l"]] and (x, y-1) is not adv_pos:
                     pos_moves.add(((x, y), self.dir_map["l"]))
                     q.append(((x, y - 1), depth + 1))
                 # enqueue neighbors with added depth
@@ -77,7 +77,66 @@ class StudentAgent(Agent):
                 visited.add((x, y))
         return pos_moves
 
-    def check_endgame(self, chess_board, my_pos, adv_pos):
+    # TODO: Minimax function (option for depth limited)
+    def minimax_decision(self, chess_board, my_pos, adv_pos, max_step):
+        max = float('-inf')
+        max_move = None
+        moves = self.possible_moves(chess_board, my_pos, adv_pos,max_step)
+        for op in moves:
+            # The subsequent move will be the min player's, so max_player = False
+            value = self.minimax_val(StudentAgent.transition(chess_board, op), my_pos, adv_pos, False, max_step)
+            if value == 1:  # In this case we found a win so we can stop. There will not be a bigger value
+                return op
+            if value > max:
+                max = value
+                max_move = op
+
+        return max_move
+
+
+    def minimax_val(self, chess_board, my_pos, adv_pos, max_player, max_step):
+        """
+        Calculates the minimax value of a given board
+        Returns: Float or int
+        If max's turn, returns max of min player's next turn. If min's turn, returns min of max player's next turn.
+        ------
+        chess_board : Array (mxmx4)
+        my_pos : Tuple
+        adv_pos : Tuple
+        max_player : bool
+            True if it is the max player's turn. False if min_player's turn
+        """
+        print("minimax_val executing")
+        over, my_score, adv_score = StudentAgent.check_endgame(chess_board, my_pos, adv_pos)
+
+        # If leaf node
+        if over: # meaning the game is over and thus it is a leaf node
+            # calculate score. If negative, then min player won. If equal to 0, then it's a tie. Else max won
+            # Returns 1 for win, -1 for loss, 0 for a tie
+            score = my_score-adv_score
+            if score > 0:
+                return 1
+            elif score < 0:
+                return -1
+            else:
+                return 0
+
+        if max_player:
+            value = float('-inf')
+            for op in self.possible_moves(chess_board, my_pos, adv_pos, max_step) :
+                new_board = StudentAgent.transition(chess_board, op)
+                value = max(value, self.minimax_val(new_board, my_pos, adv_pos, (not max_player), max_step ))
+            return value
+
+        else: # in the case of min player
+            value = float('inf')
+            for op in self.possible_moves(chess_board, my_pos, adv_pos, max_step):  # for every possible subsequent move
+                new_board = StudentAgent.transition(chess_board, op)  # child node
+                value = max(value, self.minimax_val(new_board, my_pos, adv_pos, (not max_player), max_step))
+            return value
+
+    @staticmethod
+    def check_endgame(chess_board, my_pos, adv_pos):
         """
         Check if the game ends and compute the current score of the agents.
 
@@ -131,7 +190,7 @@ class StudentAgent(Agent):
             return True, p0_score, p1_score
 
     @staticmethod
-    def transition(self, board, move):
+    def transition(board, move):
 
         # Move must be formatted as such
         (x, y), dir = move
@@ -139,4 +198,4 @@ class StudentAgent(Agent):
         result[x, y, dir] = True
         return result
 
-    # TODO: Minimax function (option for depth limited)
+
