@@ -44,7 +44,23 @@ class StudentAgent(Agent):
         return self.minimax_decision(chess_board, my_pos, adv_pos, max_step)
 
     def possible_moves(self, chess_board, my_pos, adv_pos, max_step):  # returns a set
+        """
+        Calculates all possible moves for a given position, board, opponent position, and step size
+        Parameters
+        ----------
+        chess_board
+        my_pos: tuple
+        the player's position in a tuple (x,y)
+        adv_pos: tuple
+        the opponent's position in a tuple (x,y)
+        max_step: int
+        the maximum number of step the player can take
 
+        Returns
+        -------
+        set
+        returns a set of tuples. Each tuple is a possible move in the format ((x, y), dir)
+        """
         q = deque()
         q.append((my_pos, 0))
         pos_moves = set()
@@ -207,15 +223,26 @@ class StudentAgent(Agent):
             return True, p0_score, p1_score
 
     def transition(self, board, move):
+        """
+        Transitions the input board with the move. Does not verify the validity of the move
+        Parameters
+        ----------
+        board: input board
+        move: the desired move
 
+        Returns
+        -------
+        Returns a new board with the barrier placed (does not modify the input board)
+        """
         # Move must be formatted as such
         (x, y), dir = move
         result = board.copy()
         # Set the barrier to True
         result[x, y, dir] = True
         # Set the opposite barrier to True
-        move = self.move_directions[dir]
-        result[x + move[0], y + move[1], self.opposites[dir]] = True
+        op_move = self.move_directions[dir] #opposite move
+        result[x + op_move[0], y + op_move[1], self.opposites[dir]] = True
         return result
+
 
 
