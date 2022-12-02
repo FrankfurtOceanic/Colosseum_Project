@@ -244,5 +244,121 @@ class StudentAgent(Agent):
         result[x + op_move[0], y + op_move[1], self.opposites[dir]] = True
         return result
 
+    def default_policy(self, chess_board, my_pos, adv_pos, max_step, my_turn):
+        """
+
+        Parameters
+        ----------
+        chess_board
+        my_pos
+        adv_pos
+        max_step
+        my_turn: bool
+        True if it is my agent's turn. False if it's the opponent's turn
+
+        Returns
+        -------
+
+        """
+        # First check if the game is over
+        over, my_score, adv_score = StudentAgent.check_endgame(chess_board, my_pos, adv_pos)
+
+        # initialise who's turn it is
+        turn = my_turn.copy()
+        board=chess_board.de
+        # tuples are immutable so no need to copy positions
+        while not over:
+            # in the case where the game is on going, calculate the next move
+
+            if turn:  # case where it is my agent's turn
+                # make my move
+                board, my_pos = self.take_turn(board, my_pos, adv_pos, max_step)
+
+            else : # case where it is the opponent's turn
+
+                # change the board and the adversary's position according to
+                board, adv_pos = self.take_turn(board, adv_pos, my_pos, max_step)
+
+            # change who's turn it is
+            turn = not turn
+        # while loop ends when the game is over
+        # calculate utility
+        return StudentAgent.utility(my_score, adv_score)
 
 
+
+    @staticmethod
+    def utility(my_score, adv_score):
+        """
+        Returns 1 for a win, -1 for a loss, 0 for a tie
+        Could be changed to my_score - adv_score
+        In that case you lose badly, it is reflected.
+        Parameters
+        ----------
+        my_score: my number of squares
+        adv_score: the opponent's number of squares
+
+        Returns
+        -------
+        Utility
+        """
+        score = my_score - adv_score
+        if score > 0:
+            return 1
+        elif score < 0:
+            return -1
+        else:
+            return 0
+
+    def take_turn(self, chess_board, acting_pos, passive_pos, max_step):
+        """
+
+        Parameters
+        ----------
+        chess_board: current board
+        acting_pos: position of the player who is moving
+        passive_pos: position of the player who is not moving (acts as a barrier)
+        max_step
+
+        Returns
+        -------
+        Returns the new board having performed a move and position for the acting player
+        """
+        move = self.random_walk(chess_board, acting_pos, passive_pos, max_step)
+        pos, dir = move
+        return self.transition(chess_board, move), pos
+
+    def random_walk(self, chess_board, my_pos, adv_pos, max_step):
+        # Moves (Up, Right, Down, Left)
+        ori_pos = deepcopy(my_pos)
+        moves = ((-1, 0), (0, 1), (1, 0), (0, -1))
+        steps = np.random.randint(0, max_step + 1)
+
+        # Random Walk
+        for _ in range(steps):
+            r, c = my_pos
+            dir = np.random.randint(0, 4)
+            m_r, m_c = moves[dir]
+            my_pos = (r + m_r, c + m_c)
+
+            # Special Case enclosed by Adversary
+            k = 0
+            while chess_board[r, c, dir] or my_pos == adv_pos:
+                k += 1
+                if k > 300:
+                    break
+                dir = np.random.randint(0, 4)
+                m_r, m_c = moves[dir]
+                my_pos = (r + m_r, c + m_c)
+
+            if k > 300:
+                my_pos = ori_pos
+                break
+
+        # Put Barrier
+        dir = np.random.randint(0, 4)
+        r, c = my_pos
+        while chess_board[r, c, dir]:
+            dir = np.random.randint(0, 4)
+
+        return my_pos, dir
