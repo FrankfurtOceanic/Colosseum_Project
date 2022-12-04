@@ -148,7 +148,6 @@ class MonteCarloTreeSearcher:
         seconds = kwargs.get("search_time", 1.90)
         self.search_time = timedelta(seconds=seconds)
 
-        self.max_search_depth = kwargs.get("max_search_depth", 100)
         self.exploration_weight = kwargs.get("expoloration_weight", 1.4)
 
         self.depth = 0
@@ -180,7 +179,7 @@ class MonteCarloTreeSearcher:
         state = self.state(player, depth, move)
         return (self.Q[state]/self.N[state]) + self.exploration_weight * sqrt(log_total/self.N[state])
 
-    def choose(self, board, pos, adv):
+    def choose(self, board, pos, adv, **kwargs):
         self.depth += 1
         depth = self.depth
         moves = next_moves(board, pos, adv, self.max_step)    
@@ -188,7 +187,11 @@ class MonteCarloTreeSearcher:
         self.pos = pos
         self.adv = adv
 
-        self.simulate()
+        depth_limit = kwargs.get("depth_limit")
+        search_time = timedelta(seconds=kwargs.get('search_time'))
+        start = datetime.utcnow()
+        while datetime.utcnow() - start < search_time:
+            self.simulate(depth_limit=depth_limit)
 
         best_move = moves[0]
         best_win_rate = self.win_rate(best_move, depth)
@@ -202,7 +205,7 @@ class MonteCarloTreeSearcher:
         self.depth += 1
         return best_move
 
-    def simulate(self):
+    def simulate(self, **kwargs):
         visited = set()
         player = True
         winner = None
@@ -212,8 +215,9 @@ class MonteCarloTreeSearcher:
         pos = deepcopy(self.pos)
         adv = deepcopy(self.adv)
 
+        depth_limit = kwargs.get("depth_limit")
         expand = True
-        for _ in range(self.max_search_depth):
+        for _ in range(depth_limit):
             moves = next_moves(board, pos, adv, max_step)
             if self.all_expanded(player, depth, moves):
                 log_total = log(self.total(player, depth, moves))
@@ -262,12 +266,23 @@ class MonteCarloTreeSearcher:
 class AgentSearcher:
     def __init__(self) -> None:
         self.mcts = None
+        self.setup_time = 3
+        self.move_time = 0.2
+        self.tol_time = 0.05
+        self.setup_depth_limit = 100
+        self.move_depth_limit = 50
     
     def move(self, board, pos, adv, max_step):
         if self.mcts is None:
             self.mcts = MonteCarloTreeSearcher(max_step)
-        
-        return self.mcts.choose(board, pos, adv)
+            search_time = self.setup_time
+            depth_limit = self.setup_depth_limit
+        else:
+            search_time = self.move_time
+            depth_limit = self.move_depth_limit
+
+        search_time -= self.tol_time
+        return self.mcts.choose(board, pos, adv, search_time=search_time, depth_limit=depth_limit)
 
 @register_agent("student_agent")
 class StudentAgent(Agent):
