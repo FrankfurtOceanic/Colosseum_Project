@@ -40,7 +40,7 @@ class StudentAgent(Agent):
         Please check the sample implementation in agents/random_agent.py or agents/human_agent.py for more details.
         """
         # dummy return
-        #input("Next move?")
+        input("Next move?")
         return self.minimax_decision(chess_board, my_pos, adv_pos, max_step)
 
     def possible_moves(self, chess_board, my_pos, adv_pos, max_step):  # returns a set
@@ -108,7 +108,7 @@ class StudentAgent(Agent):
             print(op)
             new_pos, _ = op  # by taking the move, the player moves
             # The subsequent move will be the min player's, so max_player = False
-            value = self.minimax_val(self.transition(chess_board, op), new_pos, adv_pos, False, max_step, 5)
+            value = self.minimax_val(self.transition(chess_board, op), new_pos, adv_pos, False, max_step, 4)
             print(f"Current move is {op} with value {value}")
             if value == 1:  # In this case we found a win so we can stop. There will not be a bigger value
                 print("stop early")
@@ -157,15 +157,23 @@ class StudentAgent(Agent):
                 # by taking the move, the max player moves
                 new_pos, _ = op # need to calculate the new position
                 value = max(value, self.minimax_val(new_board, new_pos, adv_pos, (not max_player), max_step, depth-1 ))
+
+                # alpha beta pruning
+                if value > 0:  # if we find a win for the max agent, we can just take it
+                    return value
             return value
 
-        else: # in the case of min player
+        else:  # in the case of min player
             value = float('inf')
             for op in self.possible_moves(chess_board, adv_pos, my_pos, max_step):  # for every possible subsequent move
                 new_board = self.transition(chess_board, op)  # child node
                 # by taking the move, the min player moves
                 new_pos, _ = op  # need to calculate the new position
                 value = min(value, self.minimax_val(new_board, my_pos, new_pos, (not max_player), max_step, depth-1))
+
+                # alpha beta pruning
+                if(value < 0):  # best case for min agent is to find a loss for the max agent
+                    return value
             return value
 
     @staticmethod
@@ -328,6 +336,7 @@ class StudentAgent(Agent):
         pos, dir = move
         return self.transition(chess_board, move), pos
 
+'''
     def random_walk(self, chess_board, my_pos, adv_pos, max_step):
         # Moves (Up, Right, Down, Left)
         ori_pos = deepcopy(my_pos)
@@ -362,3 +371,4 @@ class StudentAgent(Agent):
             dir = np.random.randint(0, 4)
 
         return my_pos, dir
+'''
