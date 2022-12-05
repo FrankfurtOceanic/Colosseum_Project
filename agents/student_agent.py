@@ -10,7 +10,11 @@ from random import choice
 from typing import Union
 import sys
 
-def check_game_over(board, pos: tuple, adv: tuple, moves_arr=((-1, 0), (0, 1), (1, 0), (0, -1))) -> tuple[bool, int, int]:
+MOVES = ((-1, 0), (0, 1), (1, 0), (0, -1))
+OPP_MAP = {0: 2, 1: 3, 2: 0, 3: 1}
+DIR_MAP = {"u": 0, "r": 1, "d": 2, "l": 3}
+
+def check_game_over(board, pos: tuple, adv: tuple) -> tuple[bool, int, int]:
     """
     Check if the game ends and compute the current score of the agents.
 
@@ -35,13 +39,13 @@ def check_game_over(board, pos: tuple, adv: tuple, moves_arr=((-1, 0), (0, 1), (
             father[pos] = find(father[pos])
         return father[pos]
 
-    def union(pos1, pos2):
-        father[pos1] = pos2
+    def union(this, other):
+        father[this] = other
 
     for r in range(board_size):
         for c in range(board_size):
             for dir, move in enumerate(
-                moves_arr[1:3]
+                MOVES[1:3]
             ):  # Only check down and right
                 if board[r, c, dir + 1]:
                     continue
@@ -63,7 +67,7 @@ def check_game_over(board, pos: tuple, adv: tuple, moves_arr=((-1, 0), (0, 1), (
         return True, p0_score, p1_score
 
 
-def transition(board, move, moves_arr=((-1, 0), (0, 1), (1, 0), (0, -1)), op_map={0: 2, 1: 3, 2: 0, 3: 1}) -> tuple:
+def transition(board, move: tuple[tuple[int, int], int]):
     """
     Transitions the input board with the move. Does not verify the validity of the move
     Parameters
@@ -83,12 +87,12 @@ def transition(board, move, moves_arr=((-1, 0), (0, 1), (1, 0), (0, -1)), op_map
     result[x, y, dir] = True
 
     # Set the opposite barrier to True
-    op_move = moves_arr[dir] # opposite move
-    result[x + op_move[0], y + op_move[1], op_map[dir]] = True
+    opp_move = MOVES[dir] # opposite move
+    result[x + opp_move[0], y + opp_move[1], OPP_MAP[dir]] = True
     return result
 
 
-def next_moves(board, pos, adv, max_step, dir_map={"u": 0, "r": 1, "d": 2, "l": 3}) -> list[tuple]:
+def get_moves(board, pos: tuple[int, int], adv: tuple[int, int], max_step: int) -> list[tuple[tuple[int, int], int]]:
     """
     Calculates all possible moves for a given position, board, opponent position, and step size
     Parameters
@@ -100,7 +104,6 @@ def next_moves(board, pos, adv, max_step, dir_map={"u": 0, "r": 1, "d": 2, "l": 
     the opponent's position in a tuple (x,y)
     max_step: int
     the maximum number of step the player can take
-    dir_map:
 
     Returns
     -------
@@ -118,23 +121,23 @@ def next_moves(board, pos, adv, max_step, dir_map={"u": 0, "r": 1, "d": 2, "l": 
 
         if (x, y) not in visited and not (x, y) == adv:
             # check and add up
-            if not board[x, y, dir_map["u"]] :  # check for a barrier and if the opponent is positioned in the desired square.
-                moves.add(((x, y), dir_map["u"]))
+            if not board[x, y, DIR_MAP["u"]] :  # check for a barrier and if the opponent is positioned in the desired square.
+                moves.add(((x, y), DIR_MAP["u"]))
                 q.append(((x - 1, y), depth + 1))
 
             # check and add right
-            if not board[x, y, dir_map["r"]] :
-                moves.add(((x, y), dir_map["r"]))
+            if not board[x, y, DIR_MAP["r"]] :
+                moves.add(((x, y), DIR_MAP["r"]))
                 q.append(((x, y + 1), depth + 1))
 
             # check and add down
-            if not board[x, y, dir_map["d"]] :
-                moves.add(((x, y), dir_map["d"]))
+            if not board[x, y, DIR_MAP["d"]] :
+                moves.add(((x, y), DIR_MAP["d"]))
                 q.append(((x + 1, y), depth + 1))
 
             # check and add left
-            if not board[x, y, dir_map["l"]] :
-                moves.add(((x, y), dir_map["l"]))
+            if not board[x, y, DIR_MAP["l"]] :
+                moves.add(((x, y), DIR_MAP["l"]))
                 q.append(((x, y - 1), depth + 1))
             # enqueue neighbors with added depth
             # can only enqueue of the neighbor is reachable (check chess_board[r, c, dir])
@@ -145,9 +148,9 @@ def next_moves(board, pos, adv, max_step, dir_map={"u": 0, "r": 1, "d": 2, "l": 
 class MonteCarloNode:
     player: bool
     depth: int
-    move: tuple
+    move: tuple[tuple[int, int], int]
     
-    def __init__(self, player: bool, depth: int, move: tuple) -> None:
+    def __init__(self, player: bool, depth: int, move: tuple[tuple[int, int], int]) -> None:
         self.player = player
         self.depth = depth
         self.move = move
@@ -178,40 +181,25 @@ class MonteCarloTreeSearcher:
         self.depth = 0
         self.playouts = defaultdict(int)
         self.wins = defaultdict(int)
-        self.weight = kwargs.get('weight', 1.4)
+        self.weight = kwargs.get("weight", 1.4)
     
     def expand(self, node: MonteCarloNode) -> None:
         self.wins[node] = 0
         self.playouts[node] = 0
 
     def expanded(self, node: MonteCarloNode) -> bool:
-        return (node in self.wins)
+        return (node in self.playouts)
 
     def total(self, nodes: list[MonteCarloNode]) -> int:
-        return sum(self.wins.get(node) for node in nodes)
+        return sum(self.playouts.get(node) for node in nodes)
     
     def uct(self, node: MonteCarloNode, log_total: float) -> float:
-        return (self.playouts[node]/self.wins[node]) + self.weight * sqrt(log_total/self.wins[node])
+        return (self.wins[node]/self.playouts[node]) + self.weight * sqrt(log_total/self.playouts[node])
 
     def win_rate(self, node: MonteCarloNode) -> float:
-        return self.playouts.get(node, 0)/self.wins.get(node, 1)
+        return self.wins.get(node, 0)/self.playouts.get(node, 1)
 
-    def choose(self, board, pos: tuple, adv: tuple, **kwargs) -> tuple:
-        self.depth += 1
-        depth = self.depth
-        moves = next_moves(board, pos, adv, self.max_step)
-
-        depth_limit = kwargs.get('depth_limit', DEFAULT_DEPTH_LIMIT)
-        seconds = kwargs.get('search_time', DEFAULT_SEARCH_TIME) - TOL_TIME
-        search_time = timedelta(seconds=seconds)
-        start = datetime.utcnow()
-        while datetime.utcnow() - start < search_time:
-            self.simulate(deepcopy(board), deepcopy(pos), deepcopy(adv), depth_limit=depth_limit)
-
-        self.depth += 1
-        return max(moves, key=lambda move: self.win_rate(MonteCarloNode(True, depth, move)))
-
-    def next_node(self, nodes: list[MonteCarloNode]) -> MonteCarloNode:
+    def select(self, nodes: list[MonteCarloNode]) -> MonteCarloNode:
         if all(self.expanded(node) for node in nodes):
             log_total = log(self.total(nodes))
             node = max(nodes, key=lambda n: self.uct(n, log_total))
@@ -219,43 +207,50 @@ class MonteCarloTreeSearcher:
             node = choice(nodes)
         return node
 
-    def update_nodes(self, nodes: set[MonteCarloNode], winner: Union[None, bool]) -> None:
+    def update(self, nodes: set[MonteCarloNode], winner: Union[None, bool]) -> None:
         for node in nodes:
-            if node not in self.wins:
+            if node not in self.playouts:
                 continue
             player = node.player   
-            self.wins[node] += 1
+            self.playouts[node] += 1
             if winner is not None:
                 if winner == player:
-                    self.playouts[node] += 1
+                    self.wins[node] += 1
 
-    def simulate(self, board, pos: tuple, adv: tuple, **kwargs) -> None:
+    def simulate(self, board, pos: tuple[int, int], adv: tuple[int, int], **kwargs) -> None:
         visited = set()
         player = True
         winner = None
-        depth = self.depth
         max_step = self.max_step
 
-        depth_limit = kwargs.get('depth_limit', DEFAULT_DEPTH_LIMIT)
+        depth_limit = kwargs.get("depth_limit", DEFAULT_DEPTH_LIMIT)
         expand = True
-        for _ in range(depth_limit):
+        for depth in range(self.depth, self.depth + depth_limit + 1):
             # Get all the possible next moves.
-            moves = next_moves(board, pos, adv, max_step)
+            moves = get_moves(board, pos, adv, max_step)
 
             # Associate to each move a node in the tree
             nodes = [MonteCarloNode(player, depth, move) for move in moves]
-            node = self.next_node(nodes)
+
+            # Select the next node.
+            node = self.select(nodes)
+
+            # Get the node move.
             move = node.move
+
+            # Apply the move to the board.
             board = transition(board, move)
 
+            # Expand the node if necessary.
             if expand and not self.expanded(node):
                 expand = False
                 self.expand(node)
-            
+
+            # Mark node as visited.
             visited.add(node)
 
+            # Check if the node is a terminal.
             game_over, score, adv_score = check_game_over(board, pos, adv)
-
             if game_over:
                 if score > adv_score:
                     winner = player
@@ -263,26 +258,68 @@ class MonteCarloTreeSearcher:
                     winner = not player 
                 break
 
+            # Go to the other player.
             player = not player
+
+            # Update positions of players.
             pos = adv
-            (x, y), _ = move
-            adv = (x, y)
-            depth += 1
+            adv, _ = move
+
+        # Update all the visited nodes.
+        self.update(visited, winner)
+
+    def search(self, board, pos: tuple[int, int], adv: tuple[int, int], **kwargs) -> None:
+        max_simulations = kwargs.get("max_simulations")
+        seconds = kwargs.get("search_time", DEFAULT_SEARCH_TIME) - TOL_TIME
+        search_time = timedelta(seconds=seconds)
+
+        # Simulate games until the maximum number
+        # of simulations is reached or the time limit
+        # is reached.
+        num_simulations = 0
+        start = datetime.utcnow()
+        while datetime.utcnow() - start < search_time and num_simulations < max_simulations:
+            self.simulate(deepcopy(board), deepcopy(pos), deepcopy(adv), **kwargs)
+            num_simulations += 1
+
+    def choose(self, board, pos: tuple[int, int], adv: tuple[int, int], **kwargs) -> tuple[tuple[int, int], int]:
+        # Increase the depth for the next move.
+        self.depth += 1
+
+        # Search in the tree.
+        self.search(deepcopy(board), deepcopy(pos), deepcopy(adv), **kwargs)
+
+        # Get the list of possible moves.
+        moves = get_moves(board, pos, adv, self.max_step)
+
+        # Choose the move with maximum estimated win rate.
+        chosen = max(moves, key=lambda m: self.win_rate(MonteCarloNode(True, self.depth, m)))
         
-        self.update_nodes(visited, winner)
+        # Increase the depth for the opponent move.
+        self.depth += 1
+
+        # Return the chosen move.
+        return chosen 
 
 class AgentSearcher:
     def __init__(self) -> None:
         self.mcts = None
+        self.max_simulations = 1
 
-    def move(self, board, pos, adv, max_step):
+    def move(self, board, pos: tuple[int, int], adv: tuple[int, int], max_step: int) -> tuple[tuple[int, int], int]:
+        kwargs = {}
         if self.mcts is None:
+            # Initialize the monte carlo tree searcher.
+            # Put the search time as the setup time.
+            # Put the depth limit as the setup depth limit.
+            # Compute the maximum number of simulations.
             self.mcts = MonteCarloTreeSearcher(max_step)
-            search_time = SETUP_TIME
-            depth_limit = SETUP_DEPTH_LIMIT
-            return self.mcts.choose(board, pos, adv, search_time=search_time, depth_limit=depth_limit)
-        else:
-            return self.mcts.choose(board, pos, adv)
+            kwargs["search_time"] = SETUP_TIME
+            kwargs["depth_limit"] = SETUP_DEPTH_LIMIT
+            self.max_simulations = board.shape[0] * max_step
+
+        kwargs["max_simulations"] = self.max_simulations
+        return self.mcts.choose(board, pos, adv, **kwargs)
 
 @register_agent("student_agent")
 class StudentAgent(Agent):
@@ -294,12 +331,6 @@ class StudentAgent(Agent):
     def __init__(self):
         super(StudentAgent, self).__init__()
         self.name = "StudentAgent"
-        self.dir_map = {
-            "u": 0,
-            "r": 1,
-            "d": 2,
-            "l": 3,
-        }
 
         # Enable autoplay
         self.autoplay = True
@@ -307,7 +338,7 @@ class StudentAgent(Agent):
         # Initialize the agent searcher.
         self.searcher = AgentSearcher()
 
-    def step(self, board, pos, adv, max_step):
+    def step(self, board, pos: tuple[int, int], adv: tuple[int, int], max_step: int) -> tuple[tuple[int, int], int]:
         """
         Implement the step function of your agent here.
         You can use the following variables to access the chess board:
