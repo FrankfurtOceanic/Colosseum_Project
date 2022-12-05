@@ -194,16 +194,16 @@ class MonteCarloTreeSearcher:
     def total(self, nodes: list[MonteCarloNode]) -> int:
         return sum(self.playouts.get(node) for node in nodes)
     
-    def uct(self, node: MonteCarloNode, log_total: float) -> float:
-        return (self.wins[node]/self.playouts[node]) + self.weight * sqrt(log_total/self.playouts[node])
+    def uct(self, node: MonteCarloNode, total: float) -> float:
+        return (self.wins[node]/self.playouts[node]) + self.weight * sqrt(log(total)/self.playouts[node])
 
     def win_rate(self, node: MonteCarloNode) -> float:
         return self.wins.get(node, 0)/self.playouts.get(node, 1)
 
     def select(self, nodes: list[MonteCarloNode]) -> MonteCarloNode:
         if all(self.expanded(node) for node in nodes):
-            log_total = log(self.total(nodes))
-            node = max(nodes, key=lambda n: self.uct(n, log_total))
+            total = self.total(nodes)
+            node = max(nodes, key=lambda n: self.uct(n, total))
         else:
             node = choice(nodes)
         return node
