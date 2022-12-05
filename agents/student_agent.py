@@ -139,6 +139,7 @@ def get_moves(board, pos: tuple[int, int], adv: tuple[int, int], max_step: int) 
             if not board[x, y, DIR_MAP["l"]] :
                 moves.add(((x, y), DIR_MAP["l"]))
                 q.append(((x, y - 1), depth + 1))
+
             # enqueue neighbors with added depth
             # can only enqueue of the neighbor is reachable (check chess_board[r, c, dir])
             # add pos to visited
@@ -209,12 +210,9 @@ class MonteCarloTreeSearcher:
 
     def update(self, nodes: set[MonteCarloNode], winner: Union[None, bool]) -> None:
         for node in nodes:
-            if node not in self.playouts:
-                continue
-            player = node.player   
-            self.playouts[node] += 1
-            if winner is not None:
-                if winner == player:
+            if self.expanded(node):
+                self.playouts[node] += 1
+                if winner is not None and winner == node.player:
                     self.wins[node] += 1
 
     def simulate(self, board, pos: tuple[int, int], adv: tuple[int, int], **kwargs) -> None:
