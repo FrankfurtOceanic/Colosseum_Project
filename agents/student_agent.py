@@ -173,7 +173,7 @@ DEFAULT_DEPTH_LIMIT = int(50)
 DEFAULT_SEARCH_TIME = 2
 SETUP_TIME = 30
 SETUP_DEPTH_LIMIT = int(100)
-TOL_TIME = 0.1
+TOL_TIME = 0.2
 
 class MonteCarloTreeSearcher:
     max_step: int
