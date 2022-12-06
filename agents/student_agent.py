@@ -170,8 +170,8 @@ class MonteCarloNode:
         return hash((self.player, (self.depth, self.move), (self.board.tobytes(), self.pos, self.adv)))
 
 DEFAULT_DEPTH_LIMIT = int(50)
-DEFAULT_SEARCH_TIME = 0.5
-SETUP_TIME = 3.0
+DEFAULT_SEARCH_TIME = 2
+SETUP_TIME = 30
 SETUP_DEPTH_LIMIT = int(100)
 TOL_TIME = 0.1
 
